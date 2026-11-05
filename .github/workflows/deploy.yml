@@ -1,0 +1,50 @@
+name: Refresh data and deploy
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Fetch raw export
+        run: npm run fetch-data
+      - name: Check whether data changed since last deploy
+        id: changed
+        run: |
+          live=$(curl -fsS "https://${GITHUB_REPOSITORY_OWNER}.github.io/${GITHUB_REPOSITORY#*/}/data/meta.json" | node -pe "JSON.parse(require('fs').readFileSync(0,'utf8')).md5" || echo none)
+          new=$(node -pe "require('./public/data/meta.json').md5")
+          if [ "$live" = "$new" ] && [ "${{ github.event_name }}" = "schedule" ]; then echo "skip=true" >> "$GITHUB_OUTPUT"; fi
+      - run: npm run build
+        if: steps.changed.outputs.skip != 'true'
+      - uses: actions/configure-pages@v5
+        if: steps.changed.outputs.skip != 'true'
+      - uses: actions/upload-pages-artifact@v3
+        if: steps.changed.outputs.skip != 'true'
+        with:
+          path: dist
+      - id: deployment
+        if: steps.changed.outputs.skip != 'true'
+        uses: actions/deploy-pages@v4
