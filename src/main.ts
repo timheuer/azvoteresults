@@ -257,7 +257,7 @@ function renderStatus(): void {
       ? `Updating… ${progressMb.toFixed(1)} MB`
       : error
         ? `Update failed: ${error} (showing saved data)`
-        : `Checked ${ago(stored.lastChecked)}`;
+        : `Data fetched ${new Date(stored.fetchedAt).toLocaleString()} · checked ${ago(stored.lastChecked)}`;
   } else {
     sub.textContent = '';
     st.textContent = busy ? `Loading… ${progressMb.toFixed(1)} MB` : error;
