@@ -1,6 +1,8 @@
 name: Refresh data and deploy
 
 on:
+  schedule:
+    - cron: '*/45 * * * *'
   push:
     branches: [main, master]
   workflow_dispatch:

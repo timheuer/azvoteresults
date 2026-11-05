@@ -6,7 +6,7 @@ A faster, color-coded view of the Arizona 2026 General Election results.
 
 ## How data flows
 
-- The source sends no CORS headers, so a GitHub Action ([deploy.yml](.github/workflows/deploy.yml)) downloads the raw export every 10 minutes, writes `data/export.json` and a small `data/meta.json` (md5, timestamps), and redeploys Pages only when the md5 changed.
+- The source sends no CORS headers, so a GitHub Action ([deploy.yml](.github/workflows/deploy.yml)) downloads the raw export every 45 minutes, writes `data/export.json` and a small `data/meta.json` (md5, timestamps), and redeploys Pages only when the md5 changed.
 - The browser checks `meta.json`, downloads the full export only if it changed, parses it in a Web Worker, reduces it to a compact model (statewide + county, by vote method) and stores it in IndexedDB. It re-checks every hour, when the tab regains focus, and on **Refresh now** (which forces a re-download).
 - Offline or on failure, the last saved data is shown.
 
