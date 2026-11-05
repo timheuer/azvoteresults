@@ -36,11 +36,18 @@ export interface Contest {
   counties: CountyResult[];
 }
 
+export interface CountyStatus {
+  name: string;
+  methods: { name: string; status: string }[];
+  precincts: { full: number; partial: number; none: number };
+}
+
 export interface Model {
   electionName: string;
   electionDate: string;
   sourceCreatedAt: string;
   methodStatuses: { name: string; status: string }[];
+  countyStatuses: CountyStatus[];
   contests: Contest[];
 }
 
@@ -51,8 +58,16 @@ export interface Meta {
   size: number;
 }
 
+export interface Progress {
+  fetchedAt: string;
+  asOf: string | null;
+  groups: string[];
+  counties: { name: string; values: (number | null)[]; updated: (string | null)[] }[];
+}
+
 export interface Stored {
   model: Model;
+  progress?: Progress | null;
   md5: string | null;
   lastChecked: string;
   fetchedAt: string;

@@ -97,3 +97,20 @@ tbody th { font-weight: 500; }
   .rows .row { grid-template-columns: 1fr; gap: 2px; }
   .rows .vt { text-align: left; }
 }
+
+.nav { display: flex; gap: 14px; }
+.nav a { text-decoration: none; font-weight: 600; }
+.nav a:hover { text-decoration: underline; }
+.status-table td { text-align: left; white-space: nowrap; }
+.status-table small { color: var(--muted); }
+.st { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: .78rem; font-weight: 600; border: 2px solid; }
+.st-full { background: color-mix(in srgb, #2a9d8f 25%, transparent); border-color: #2a9d8f; }
+.st-part { background: color-mix(in srgb, #e9a23b 25%, transparent); border-color: #e9a23b; }
+.st-none { background: transparent; border-color: #9aa1ac; border-style: dashed; }
+.st-na { background: transparent; border-color: transparent; color: var(--muted); font-weight: 400; }
+.status-table th { text-align: left; }
+.progress-table td.num, .progress-table th.num { text-align: right; }
+.progress-table td:nth-child(2) { min-width: 140px; }
+.progress-table th { text-align: left; }
+.progress-table th.num { text-align: right; }
+.tally small { margin-left: 4px; }

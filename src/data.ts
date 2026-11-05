@@ -1,4 +1,4 @@
-import type { Meta, Stored } from './types';
+import type { Meta, Progress, Stored } from './types';
 import type { WorkerOut } from './worker';
 
 const DB = 'azresults';
@@ -73,9 +73,18 @@ function download(onProgress: (loaded: number) => void): Promise<Stored['model']
   });
 }
 
+async function fetchProgress(): Promise<Progress | null> {
+  try {
+    const r = await fetch(`${url('progress.json')}?t=${Date.now()}`, { cache: 'no-store' });
+    return r.ok ? ((await r.json()) as Progress) : null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Checks the tiny meta.json and only downloads the full export when it changed
- * (or when nothing is cached / forced).
+ * (or when nothing is cached / forced). The small progress.json is always re-read.
  */
 export async function refresh(
   current: Stored | null,
@@ -83,14 +92,15 @@ export async function refresh(
   onProgress: (loaded: number) => void,
 ): Promise<Stored> {
   const now = new Date().toISOString();
-  const meta = await fetchMeta();
-  if (current && !force && meta && meta.md5 === current.md5) {
-    const s = { ...current, lastChecked: now };
+  const [meta, progress] = await Promise.all([fetchMeta(), fetchProgress()]);
+  const keptProgress = progress ?? current?.progress ?? null;
+  if (current && !force && meta && meta.md5 === current.md5 && current.model.countyStatuses) {
+    const s = { ...current, progress: keptProgress, lastChecked: now };
     await save(s);
     return s;
   }
   const model = await download(onProgress);
-  const s: Stored = { model, md5: meta?.md5 ?? null, lastChecked: now, fetchedAt: meta?.fetchedAt ?? now };
+  const s: Stored = { model, progress: keptProgress, md5: meta?.md5 ?? null, lastChecked: now, fetchedAt: meta?.fetchedAt ?? now };
   await save(s);
   return s;
 }

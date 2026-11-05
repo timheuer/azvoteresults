@@ -1,4 +1,4 @@
-import { METHODS, type Category, type Contest, type CountyResult, type Kind, type Model } from './types';
+import { METHODS, type Category, type Contest, type CountyResult, type CountyStatus, type Kind, type Model } from './types';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -69,11 +69,31 @@ export function reduceExport(raw: any): Model {
   }
   for (const c of contests.values()) c.counties.sort((a, b) => a.name.localeCompare(b.name));
 
+  const countyStatuses: CountyStatus[] = (raw.localResults ?? []).map((county: any) => {
+    const seen = new Map<string, string>();
+    for (const item of county.ballotItems ?? [])
+      for (const o of item.ballotOptions ?? [])
+        for (const p of o.precinctResults ?? []) seen.set(String(p.id), p.reportingStatus);
+    const precincts = { full: 0, partial: 0, none: 0 };
+    for (const s of seen.values()) {
+      if (s === 'Fully Reported') precincts.full++;
+      else if (s === 'Partially Reported') precincts.partial++;
+      else precincts.none++;
+    }
+    return {
+      name: String(county.name).replace(/ County$/, ''),
+      methods: (county.reportingStatuses ?? []).map((s: any) => ({ name: s.groupName, status: s.status })),
+      precincts,
+    };
+  });
+  countyStatuses.sort((a, b) => a.name.localeCompare(b.name));
+
   return {
     electionName: raw.electionName ?? 'Election',
     electionDate: raw.electionDate ?? '',
     sourceCreatedAt: raw.createdAt ?? '',
     methodStatuses: (raw.results?.reportingStatuses ?? []).map((s: any) => ({ name: s.groupName, status: s.status })),
+    countyStatuses,
     contests: [...contests.values()],
   };
 }

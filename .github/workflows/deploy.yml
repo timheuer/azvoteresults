@@ -32,8 +32,8 @@ jobs:
       - name: Check whether data changed since last deploy
         id: changed
         run: |
-          live=$(curl -fsS "https://${GITHUB_REPOSITORY_OWNER}.github.io/${GITHUB_REPOSITORY#*/}/data/meta.json" | node -pe "JSON.parse(require('fs').readFileSync(0,'utf8')).md5" || echo none)
-          new=$(node -pe "require('./public/data/meta.json').md5")
+          live=$(curl -fsS "https://${GITHUB_REPOSITORY_OWNER}.github.io/${GITHUB_REPOSITORY#*/}/data/meta.json" | node -pe "const m=JSON.parse(require('fs').readFileSync(0,'utf8'));m.md5+(m.progressMd5||'')" || echo none)
+          new=$(node -pe "const m=require('./public/data/meta.json');m.md5+(m.progressMd5||'')")
           if [ "$live" = "$new" ] && [ "${{ github.event_name }}" = "schedule" ]; then echo "skip=true" >> "$GITHUB_OUTPUT"; fi
       - run: npm run build
         if: steps.changed.outputs.skip != 'true'

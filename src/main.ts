@@ -4,7 +4,7 @@ import {
   METHOD_COLORS, METHOD_SHORT, TIER_INFO, esc, fmt, isNo, isYes, leaderParty, marginOf, methodTotals,
   optionColor, partyAbbr, pct, sum, tierOf, total,
 } from './stats';
-import { METHODS, type Category, type Contest, type CountyResult, type Stored } from './types';
+import { METHODS, type Category, type Contest, type CountyResult, type Progress, type Stored } from './types';
 
 const CATEGORIES: Category[] = ['Statewide', 'Congress', 'Propositions', 'Judges', 'State Senate', 'State House', 'Other'];
 
@@ -22,6 +22,7 @@ app.innerHTML = `
       <div id="sub" class="sub"></div>
     </div>
     <div class="actions">
+      <nav class="nav"><a href="#/">Results</a><a href="#/progress">Ballot progress</a><a href="#/status">Reporting status</a></nav>
       <span id="status" class="status" role="status" aria-live="polite"></span>
       <button id="refresh" type="button">Refresh now</button>
     </div>
@@ -266,8 +267,64 @@ function renderStatus(): void {
   refreshBtn.disabled = busy;
 }
 
+const STATUS_CLASS: Record<string, string> = {
+  'Fully Reported': 'st-full', 'Election Night Complete': 'st-full',
+  'Partially Reported': 'st-part', 'Not Reported': 'st-none', 'Not Participating': 'st-na',
+};
+
+function renderStatusPage(): void {
+  const cs = stored!.model.countyStatuses ?? [];
+  const chip = (s: string) => `<span class="st ${STATUS_CLASS[s] ?? 'st-na'}">${esc(s)}</span>`;
+  view.innerHTML = `
+    <p><a href="#/">← All contests</a></p>
+    <h2 class="big">Reporting status</h2>
+    <p class="muted">Status of each incoming ballot type and precinct reporting, by county, from the same export.</p>
+    <div class="scroll"><table class="status-table"><thead><tr><th>County</th>${METHODS.map((m, i) => `<th><i class="dot" style="background:${METHOD_COLORS[i]}"></i>${esc(METHOD_SHORT[i])}</th>`).join('')}<th>Precincts (full / partial / not reported)</th></tr></thead><tbody>${cs
+      .map((c) => {
+        const p = c.precincts, t = p.full + p.partial + p.none;
+        return `<tr><th>${esc(c.name)}</th>${METHODS.map((m) => `<td>${chip(c.methods.find((s) => s.name === m)?.status ?? 'Not Participating')}</td>`).join('')}<td class="nowrap">${stacked([p.full, p.partial, p.none], ['#2a9d8f', '#e9a23b', '#9aa1ac'], ['Fully reported', 'Partially reported', 'Not reported'], 'thin')}<small>${p.full} / ${p.partial} / ${p.none} of ${t}</small></td></tr>`;
+      })
+      .join('')}</tbody></table></div>`;
+}
+
+const PROGRESS_COLORS = ['#2a9d8f', '#3a86ff', '#e9a23b', '#8e5ad7'];
+
+function renderProgressPage(): void {
+  const p = stored!.progress;
+  if (!p) {
+    view.innerHTML = '<p><a href="#/">← All contests</a></p><h2 class="big">Ballot progress</h2><p class="muted">Ballot progress data is not available right now.</p>';
+    return;
+  }
+  const idx = (re: RegExp) => p.groups.findIndex((g) => re.test(g));
+  const cols = [idx(/already tabulated/i), idx(/ready for tabulation/i), idx(/early ballots left/i), idx(/provisional/i), idx(/total uncounted/i)];
+  const names = ['Tabulated', 'Ready for tabulation', 'Early left to process', 'Provisional left to process', 'Total uncounted'];
+  const val = (c: Progress['counties'][number], k: number) => (cols[k] >= 0 ? c.values[cols[k]] : null);
+  const stat = names.map((_, k) => {
+    const vs = p.counties.map((c) => val(c, k)).filter((v): v is number => v != null);
+    return { sum: sum(vs), n: vs.length };
+  });
+  const bar = (c: { v: (k: number) => number | null }) => stacked([0, 1, 2, 3].map((k) => c.v(k) ?? 0), PROGRESS_COLORS, names.slice(0, 4), 'thin');
+  const updated = (c: Progress['counties'][number]) => {
+    const t = c.updated.filter((u): u is string => !!u).map((u) => new Date(u).getTime());
+    return t.length ? new Date(Math.max(...t)).toLocaleString() : '–';
+  };
+  const cell = (v: number | null) => (v == null ? '<span class="muted">–</span>' : fmt(v));
+  view.innerHTML = `
+    <p><a href="#/">← All contests</a></p>
+    <h2 class="big">Ballot progress</h2>
+    <p class="muted">Counties' own estimates of ballots still to be counted (A.R.S. § 16-551 (D)). Estimates change as tabulation continues, and some ballots may fail verification. Not every county has reported yet.${p.asOf ? ` Updated ${esc(new Date(p.asOf).toLocaleString())}.` : ''}</p>
+    <div class="tally">${names.map((n, k) => `<span style="--c:${PROGRESS_COLORS[k] ?? '#cf4b4b'}">${esc(n)} <b>${fmt(stat[k].sum)}</b> <small class="muted">${stat[k].n}/${p.counties.length} counties</small></span>`).join('')}</div>
+    <div class="scroll"><table class="progress-table"><thead><tr><th>County</th><th>Progress</th>${names.map((n) => `<th class="num">${esc(n)}</th>`).join('')}<th>Last updated</th></tr></thead><tbody>${p.counties
+      .map((c) => `<tr><th>${esc(c.name)}</th><td>${bar({ v: (k) => val(c, k) })}</td>${names.map((_, k) => `<td class="num">${cell(val(c, k))}</td>`).join('')}<td class="nowrap">${esc(updated(c))}</td></tr>`)
+      .join('')}</tbody></table></div>
+    <ul class="legend">${names.slice(0, 4).map((n, k) => `<li><i style="background:${PROGRESS_COLORS[k]}"></i>${esc(n)}</li>`).join('')}</ul>
+    <p class="muted"><b>Ready for tabulation:</b> verified ballots waiting to be counted. <b>Early left to process:</b> received but not yet signature-verified or awaiting cure. <b>Provisional left to process:</b> provisional and conditional ballots awaiting verification (counted separately from early). <b>Total uncounted:</b> the county-reported total of those three. This page uses the results site's statistics feed, a secondary source, since the raw export has no ballot progress data.</p>`;
+}
+
 function route(): void {
   if (!stored) { view.innerHTML = busy ? '<p class="muted">Loading results…</p>' : `<p>${esc(error || 'No data yet.')}</p>`; return; }
+  if (location.hash === '#/progress') { renderProgressPage(); return; }
+  if (location.hash === '#/status') { renderStatusPage(); return; }
   const m = location.hash.match(/^#\/c\/(.+)$/);
   if (m) renderDetail(decodeURIComponent(m[1]));
   else renderHome();
@@ -303,4 +360,5 @@ function maybeRefresh(): void {
   renderStatus();
   route();
   maybeRefresh();
+  if (stored && !stored.model.countyStatuses) void doRefresh(true);
 })();
