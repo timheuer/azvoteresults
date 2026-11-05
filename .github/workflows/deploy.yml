@@ -2,7 +2,7 @@ name: Refresh data and deploy
 
 on:
   push:
-    branches: [main]
+    branches: [main, master]
   workflow_dispatch:
 
 permissions:

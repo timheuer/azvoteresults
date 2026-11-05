@@ -28,4 +28,4 @@ npm run build
 
 ## Deploy
 
-Push to `main` and set Settings → Pages → Source to **GitHub Actions**. Vite uses a relative base, so any repo name works.
+Push to `main` or `master` and set Settings → Pages → Source to **GitHub Actions**. Vite uses a relative base, so any repo name works.
